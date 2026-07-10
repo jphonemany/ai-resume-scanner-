@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Resume Scanner</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #181b25; --card2: #1f2333; --text: #e8eaf2;
+    --muted: #9aa1b5; --accent: #6c8cff; --accent2: #8f6cff; --green: #3ecf8e;
+    --yellow: #f5c451; --red: #f4665f; --border: #2a2f42;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+  header { text-align: center; margin-bottom: 40px; }
+  header h1 { font-size: 2rem; background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  header p { color: var(--muted); margin-top: 8px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+  .card h2 { font-size: 1.05rem; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+  .step-num { background: var(--accent); color: #fff; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: .8rem; flex-shrink: 0; }
+  label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 6px; }
+  input[type=text], input[type=url], select, textarea {
+    width: 100%; padding: 10px 12px; background: var(--card2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: .95rem; font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+  .dropzone { border: 2px dashed var(--border); border-radius: 10px; padding: 34px; text-align: center; cursor: pointer; transition: .2s; color: var(--muted); }
+  .dropzone:hover, .dropzone.drag { border-color: var(--accent); color: var(--text); }
+  .dropzone.hasfile { border-color: var(--green); color: var(--green); }
+  .job-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-start; }
+  .job-row .col { flex: 1; }
+  .job-row details { margin-top: 6px; }
+  .job-row summary { font-size: .78rem; color: var(--muted); cursor: pointer; }
+  .job-row textarea { margin-top: 6px; min-height: 80px; font-size: .85rem; }
+  button { cursor: pointer; border: none; border-radius: 8px; font-size: .95rem; font-family: inherit; }
+  .btn-icon { background: var(--card2); color: var(--muted); width: 38px; height: 38px; flex-shrink: 0; }
+  .btn-icon:hover { color: var(--red); }
+  .btn-secondary { background: var(--card2); color: var(--text); padding: 10px 16px; border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); }
+  .btn-primary { width: 100%; padding: 16px; font-size: 1.05rem; font-weight: 600; color: #fff; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .spinner { display: none; text-align: center; padding: 30px; color: var(--muted); }
+  .spinner.show { display: block; }
+  .spinner .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); margin: 0 4px; animation: bounce 1.2s infinite; }
+  .spinner .dot:nth-child(2) { animation-delay: .2s; } .spinner .dot:nth-child(3) { animation-delay: .4s; }
+  @keyframes bounce { 0%,80%,100% { transform: translateY(0); opacity:.4 } 40% { transform: translateY(-8px); opacity:1 } }
+  #results { display: none; }
+  .best-banner { background: linear-gradient(135deg, rgba(108,140,255,.15), rgba(143,108,255,.15)); border: 1px solid var(--accent); border-radius: 14px; padding: 22px; margin-bottom: 20px; }
+  .best-banner .tag { font-size: .75rem; letter-spacing: .1em; color: var(--accent); font-weight: 700; }
+  .best-banner h3 { margin: 6px 0 8px; }
+  .score-pill { display: inline-block; padding: 3px 12px; border-radius: 999px; font-weight: 700; font-size: .85rem; }
+  .score-high { background: rgba(62,207,142,.15); color: var(--green); }
+  .score-mid { background: rgba(245,196,81,.15); color: var(--yellow); }
+  .score-low { background: rgba(244,102,95,.15); color: var(--red); }
+  .job-card h3 { font-size: 1rem; margin-bottom: 4px; }
+  .job-card a { color: var(--accent); font-size: .82rem; word-break: break-all; }
+  .scores { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+  .bar-wrap { flex: 1; min-width: 160px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-bottom: 4px; }
+  .bar { height: 8px; background: var(--card2); border-radius: 999px; overflow: hidden; }
+  .bar > div { height: 100%; border-radius: 999px; transition: width .8s ease; }
+  .lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 12px; }
+  .lists h4 { font-size: .8rem; margin-bottom: 6px; }
+  .lists ul { padding-left: 18px; font-size: .85rem; color: var(--muted); }
+  .lists li { margin-bottom: 4px; }
+  .h-green { color: var(--green); } .h-red { color: var(--red); } .h-blue { color: var(--accent); }
+  .error-box { background: rgba(244,102,95,.1); border: 1px solid var(--red); color: var(--red); border-radius: 10px; padding: 14px; margin-bottom: 20px; display: none; font-size: .9rem; }
+  .warn-box { background: rgba(245,196,81,.1); border: 1px solid var(--yellow); color: var(--yellow); border-radius: 10px; padding: 14px; margin-bottom: 20px; font-size: .85rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>AI Resume Scanner</h1>
+    <p>Upload your resume, add job links, and find your best-fit role.</p>
+  </header>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="card">
+    <h2><span class="step-num">1</span> Upload your resume</h2>
+    <div class="dropzone" id="dropzone">
+      <div id="dropText">Drag &amp; drop your resume here, or click to browse<br><small>PDF, DOCX, or TXT — max 10 MB</small></div>
+    </div>
+    <input type="file" id="resumeInput" accept=".pdf,.docx,.txt,.md" hidden>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">2</span> Your preferences</h2>
+    <div class="grid3">
+      <div>
+        <label for="workType">Work type</label>
+        <select id="workType">
+          <option value="">No preference</option>
+          <option value="remote">Remote</option>
+          <option value="hybrid">Hybrid</option>
+          <option value="in-person">In-person</option>
+        </select>
+      </div>
+      <div>
+        <label for="salary">Expected compensation</label>
+        <input type="text" id="salary" placeholder="e.g. $120k–$150k">
+      </div>
+      <div>
+        <label for="location">Preferred location</label>
+        <input type="text" id="location" placeholder="e.g. Austin, TX">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">3</span> Job postings <span style="color:var(--muted);font-size:.8rem;font-weight:400">(up to 10)</span></h2>
+    <div id="jobList"></div>
+    <button class="btn-secondary" id="addJob">+ Add another job</button>
+  </div>
+
+  <button class="btn-primary" id="analyzeBtn">Scan &amp; Match</button>
+
+  <div class="spinner" id="spinner">
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    <p style="margin-top:12px">Fetching job postings and analyzing your resume… this can take 30–60 seconds.</p>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let resumeFile = null;
+
+// --- resume upload ---
+const dz = $('dropzone'), fi = $('resumeInput');
+dz.addEventListener('click', () => fi.click());
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); });
+fi.addEventListener('change', () => { if (fi.files[0]) setFile(fi.files[0]); });
+function setFile(f) {
+  resumeFile = f;
+  dz.classList.add('hasfile');
+  $('dropText').innerHTML = '&#10003; ' + f.name + ' <small>(click to change)</small>';
+}
+
+// --- job rows ---
+const jobList = $('jobList');
+function addJobRow(focus = true) {
+  if (jobList.children.length >= 10) return;
+  const row = document.createElement('div');
+  row.className = 'job-row';
+  row.innerHTML = `
+    <div class="col">
+      <input type="url" class="job-url" placeholder="https://company.com/careers/job-posting">
+      <details>
+        <summary>Link blocked or requires login? Paste the job description instead</summary>
+        <textarea class="job-paste" placeholder="Paste the full job description text here…"></textarea>
+      </details>
+    </div>
+    <button class="btn-icon" title="Remove">&#10005;</button>`;
+  row.querySelector('.btn-icon').addEventListener('click', () => { row.remove(); updateAddBtn(); });
+  jobList.appendChild(row);
+  updateAddBtn();
+  if (focus) row.querySelector('.job-url').focus();
+}
+function updateAddBtn() { $('addJob').style.display = jobList.children.length >= 10 ? 'none' : 'inline-block'; }
+$('addJob').addEventListener('click', () => addJobRow());
+addJobRow(false);
+
+// --- analyze ---
+$('analyzeBtn').addEventListener('click', async () => {
+  const errorBox = $('errorBox');
+  errorBox.style.display = 'none';
+  $('results').style.display = 'none';
+
+  if (!resumeFile) return showError('Please upload your resume first.');
+
+  const jobs = [...jobList.children].map(row => ({
+    url: row.querySelector('.job-url').value.trim(),
+    pastedText: row.querySelector('.job-paste').value.trim()
+  })).filter(j => j.url || j.pastedText);
+  if (jobs.length === 0) return showError('Add at least one job posting link or pasted description.');
+  const short = jobs.find(j => j.pastedText && j.pastedText.length < 100);
+  if (short) return showError(`One of your pasted job descriptions is only ${short.pastedText.length} characters — paste the full job description (at least 100 characters), not a summary.`);
+
+  const fd = new FormData();
+  fd.append('resume', resumeFile);
+  fd.append('preferences', JSON.stringify({
+    workType: $('workType').value,
+    salary: $('salary').value.trim(),
+    location: $('location').value.trim()
+  }));
+  fd.append('jobs', JSON.stringify(jobs));
+
+  $('analyzeBtn').disabled = true;
+  $('spinner').classList.add('show');
+  try {
+    const res = await fetch('/api/analyze', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Analysis failed.');
+    renderResults(data);
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    $('analyzeBtn').disabled = false;
+    $('spinner').classList.remove('show');
+  }
+});
+
+function showError(msg) {
+  const e = $('errorBox');
+  e.textContent = msg;
+  e.style.display = 'block';
+  e.scrollIntoView({ behavior: 'smooth' });
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+function pillClass(s) { return s >= 75 ? 'score-high' : s >= 50 ? 'score-mid' : 'score-low'; }
+function barColor(s) { return s >= 75 ? 'var(--green)' : s >= 50 ? 'var(--yellow)' : 'var(--red)'; }
+function jobLink(url) {
+  if (!url) return '';
+  return /^https?:\/\//i.test(url)
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>`
+    : `<span style="color:var(--muted);font-size:.82rem">${esc(url)}</span>`;
+}
+function list(items, cls) { return '<ul>' + (items || []).map(i => `<li class="${cls||''}">${esc(i)}</li>`).join('') + '</ul>'; }
+
+let currentScanId = null;
+function renderResults({ analysis, failed, scanId }) {
+  currentScanId = scanId;
+  const r = $('results');
+  const jobs = (analysis.jobs || []).slice().sort((a, b) => b.overall_score - a.overall_score);
+  const best = analysis.best_fit || {};
+  const bestJob = (analysis.jobs || []).find(j => j.id === best.id) || jobs[0];
+
+  let html = '';
+  if (failed && failed.length) {
+    html += `<div class="warn-box">&#9888; Could not fetch ${failed.length} link(s): ` +
+      failed.map(f => esc(f.url) + ' — ' + esc(f.error)).join('; ') +
+      '. You can paste those descriptions manually and rescan.</div>';
+  }
+  if (bestJob) {
+    html += `<div class="best-banner">
+      <div class="tag">&#127942; BEST FIT</div>
+      <h3>${esc(bestJob.title)}</h3>
+      ${bestJob.url ? jobLink(bestJob.url) + '<br>' : ''}
+      <span class="score-pill ${pillClass(bestJob.overall_score)}" style="margin-top:8px">${bestJob.overall_score}/100 overall</span>
+      <p style="margin-top:10px;color:var(--muted);font-size:.9rem">${esc(best.reason || '')}</p>
+    </div>`;
+  }
+
+  html += jobs.map(j => `
+    <div class="card job-card">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+        <div>
+          <h3>${esc(j.title)}</h3>
+          ${j.url ? jobLink(j.url) : ''}
+        </div>
+        <span class="score-pill ${pillClass(j.overall_score)}">${j.overall_score}/100</span>
+      </div>
+      <div class="scores">
+        <div class="bar-wrap">
+          <div class="bar-label"><span>Resume match</span><span>${j.resume_match_score}</span></div>
+          <div class="bar"><div style="width:${j.resume_match_score}%;background:${barColor(j.resume_match_score)}"></div></div>
+        </div>
+        <div class="bar-wrap">
+          <div class="bar-label"><span>Preference match</span><span>${j.preference_match_score}</span></div>
+          <div class="bar"><div style="width:${j.preference_match_score}%;background:${barColor(j.preference_match_score)}"></div></div>
+        </div>
+      </div>
+      <div class="lists">
+        <div><h4 class="h-green">Strengths</h4>${list(j.strengths)}</div>
+        <div><h4 class="h-red">Gaps</h4>${list(j.gaps)}</div>
+        <div><h4 class="h-blue">Resume edits for this job</h4>${list(j.resume_recommendations)}</div>
+      </div>
+      <button class="btn-secondary tailor-btn" data-jobid="${j.id}" style="margin-top:14px">&#9998; Generate tailored resume</button>
+      <div class="tailor-out" id="tailor-${j.id}"></div>
+    </div>`).join('');
+
+  if (analysis.general_resume_feedback?.length) {
+    html += `<div class="card"><h2>&#128221; Overall resume feedback</h2>${list(analysis.general_resume_feedback)}</div>`;
+  }
+
+  html += `<div class="card">
+    <h2>&#128269; Find more jobs</h2>
+    <p style="color:var(--muted);font-size:.87rem;margin-bottom:12px">Search the web for other postings matching your resume (uses Adzuna — free keys required, see README).</p>
+    <button class="btn-secondary" id="findJobsBtn">Search for matching jobs</button>
+    <div id="findJobsOut"></div>
+  </div>`;
+
+  r.innerHTML = html;
+  r.style.display = 'block';
+  r.querySelectorAll('.tailor-btn').forEach(btn =>
+    btn.addEventListener('click', () => generateTailored(btn, parseInt(btn.dataset.jobid, 10))));
+  const fj = document.getElementById('findJobsBtn');
+  if (fj) fj.addEventListener('click', () => findMoreJobs(fj));
+  r.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function generateTailored(btn, jobId) {
+  const out = document.getElementById('tailor-' + jobId);
+  btn.disabled = true;
+  btn.textContent = 'Generating\u2026 (15\u201330s)';
+  try {
+    const res = await fetch('/api/tailor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scanId: currentScanId, jobId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Generation failed.');
+    out.innerHTML = `
+      <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+        <h4 class="h-blue" style="margin-bottom:6px">What changed</h4>
+        ${list(data.changes_made)}
+        <h4 class="h-blue" style="margin:12px 0 6px">Tailored resume</h4>
+        <textarea readonly style="min-height:260px;font-size:.83rem;white-space:pre-wrap">${esc(data.tailored_resume)}</textarea>
+        <button class="btn-secondary" style="margin-top:8px" onclick="downloadText(this)">&#11015; Download .txt</button>
+      </div>`;
+    btn.textContent = '\u21BB Regenerate tailored resume';
+  } catch (err) {
+    out.innerHTML = `<p style="color:var(--red);font-size:.85rem;margin-top:10px">${esc(err.message)}</p>`;
+    btn.textContent = '\u9998 Generate tailored resume';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function findMoreJobs(btn) {
+  const out = document.getElementById('findJobsOut');
+  btn.disabled = true;
+  btn.textContent = 'Searching\u2026';
+  try {
+    const res = await fetch('/api/find-jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scanId: currentScanId,
+        preferences: {
+          workType: $('workType').value,
+          location: $('location').value.trim()
+        }
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Search failed.');
+    if (!data.results.length) {
+      out.innerHTML = '<p style="color:var(--muted);font-size:.87rem;margin-top:10px">No matches found. Try adjusting your location preference.</p>';
+    } else {
+      out.innerHTML = `<p style="color:var(--muted);font-size:.82rem;margin:12px 0 8px">Searched for: \u201C${esc(data.query)}\u201D</p>` +
+        data.results.map(j => `
+        <div style="border-top:1px solid var(--border);padding:12px 0">
+          <a href="${esc(j.url)}" target="_blank" rel="noopener" style="font-weight:600">${esc(j.title)}</a>
+          <div style="color:var(--muted);font-size:.83rem;margin:3px 0">${esc(j.company)}${j.location ? ' \u00B7 ' + esc(j.location) : ''}${j.salary ? ' \u00B7 ' + esc(j.salary) : ''}</div>
+          <div style="color:var(--muted);font-size:.82rem">${esc(j.snippet)}\u2026</div>
+        </div>`).join('') +
+        '<p style="color:var(--muted);font-size:.8rem;margin-top:10px">Tip: paste any of these links into the job list above and rescan to score them against your resume.</p>';
+    }
+  } catch (err) {
+    out.innerHTML = `<p style="color:var(--red);font-size:.85rem;margin-top:10px">${esc(err.message)}</p>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Search for matching jobs';
+  }
+}
+
+function downloadText(btn) {
+  const text = btn.parentElement.querySelector('textarea').value;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+  a.download = 'tailored-resume.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>
