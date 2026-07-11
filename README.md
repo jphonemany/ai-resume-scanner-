@@ -48,7 +48,6 @@ Open http://localhost:3000
 - Tailored resumes and "find more jobs" need a completed scan first (results are kept in server memory for the last 20 scans; restart clears them).
 - Scores are 60% resume fit / 40% preference fit, weighted by the model.
 - Change the model in `.env` (`OPENAI_MODEL=gpt-4o` for higher quality, more cost).
-- Never commit `.env` — your API key is secret.
 
 ## Future ideas (from the original spec)
 
